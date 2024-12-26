@@ -36,7 +36,8 @@ async def handle_answer(data, websocket):
     
 
 async def handle_icecandidate(data, websocket):
-    await broadcast_message(data["room"], json.dumps({"type":"ice","data":data}), exclude=websocket)
+    print("handle ice candidate")
+    await broadcast_message(data["room"], json.dumps({"type":"candidate","data":data}), exclude=websocket)
 
 async def handle_join(data, websocket):
     room = rooms[data["room"]]
@@ -67,9 +68,10 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str,user_id: str):
                         await handle_offer(data["data"], websocket=websocket)
                     case "answer":
                         await handle_answer(data["data"], websocket=websocket)
-                    case "ice":
+                    case "candidate":
                         await handle_icecandidate(data["data"], websocket=websocket)
             except WebSocketDisconnect:
+                print("Disconnect")
                 break
     finally:
         room = rooms[room_name]
