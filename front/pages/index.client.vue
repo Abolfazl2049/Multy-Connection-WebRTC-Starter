@@ -26,16 +26,18 @@ let initWebrtc = () => {
 };
 const handle = () => {
   const answer = async (userId: number) => {
-    console.log(`Sending answer to ${userId}`);
+    
     ws.value.send(JSON.stringify({type: "answer", data: {target: userId}}));
     await webrtc.value.setRemoteDescription(answer);
   };
   const offer = async (userId: number, sdp: string) => {
+    
     ws.value.send(JSON.stringify({type: "offer", data: {target: userId}}));
-    initWebrtc();
+    // initWebrtc();
     await webrtc.value.setRemoteDescription({type: "offer", sdp});
+    console.log(`Sending answer to ${userId}`);
     const answer = await webrtc.value.createAnswer();
-    ws.value.emit({type: "answer", sdp: answer.sdp});
+    ws.value.send({type: "answer", sdp: answer.sdp});
     await webrtc.value.setLocalDescription(answer);
   };
   const candidate = async (candidate: any) => {
