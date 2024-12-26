@@ -4,10 +4,11 @@ from fastapi.responses import HTMLResponse
 from typing import List, Dict
 
 app = FastAPI()
-rooms: Dict[str, List[WebSocket]] = {}
+rooms = {}
 
 async def broadcast_message(room_name: str, message: str, exclude=None):
-    for connection in rooms[room_name]:
+    for participant in rooms[room_name]["participants"]:
+        connection = participant["websocket"]
         if exclude and exclude == connection:
             continue
         try:
@@ -15,24 +16,38 @@ async def broadcast_message(room_name: str, message: str, exclude=None):
         except WebSocketDisconnect:
             rooms[room_name].remove(connection)
 
+async def private_message(room_name: str, message: str, target):
+    for participant in rooms[room_name]["participants"]:
+        if participant["user_id"] == target:
+            connection = participant["websocket"]
+            try:
+                await connection.send_text(message)
+                return
+            except WebSocketDisconnect:
+                rooms[room_name].remove(connection)
+                return
+
 async def handle_offer(data, websocket):
-    await broadcast_message(data["room"], json.dumps({"type":"offer","data":data}), exclude=websocket)
+    await private_message(data["room"],json.dumps({"type":"offer","data":data}),data["target"])
+
 
 async def handle_answer(data, websocket):
-    await broadcast_message(data["room"], json.dumps({"type":"answer","data":data}), exclude=websocket)
+    await private_message(data["room"], json.dumps({"type":"answer","data":data}), data["target"])
+    
 
 async def handle_icecandidate(data, websocket):
     await broadcast_message(data["room"], json.dumps({"type":"ice","data":data}), exclude=websocket)
 
 async def handle_join(data, websocket):
+    room = rooms[data["room"]]
     await broadcast_message(data["room"], json.dumps({"type":"join","data":data}), exclude=websocket)
 
 @app.websocket("/ws/{room_name}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_name: str):
+async def websocket_endpoint(websocket: WebSocket, room_name: str,user_id: str):
     await websocket.accept()
     if room_name not in rooms:
-        rooms[room_name] = []
-    rooms[room_name].append(websocket)
+        rooms[room_name] = {"participants":[]}
+    rooms[room_name]["participants"].append({"user_id":user_id,"websocket":websocket})
 
     try:
         while True:
@@ -42,11 +57,13 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str):
                     await websocket.close()
                     break
                 data = json.loads(data)
+                data["data"]["room"] = room_name
+                data["data"]["user_id"] = user_id
                 match data["type"]:
                     case "join":
-                        data["data"]["room"] = room_name
                         await handle_join(data["data"], websocket=websocket)
                     case "offer":
+                        
                         await handle_offer(data["data"], websocket=websocket)
                     case "answer":
                         await handle_answer(data["data"], websocket=websocket)
@@ -55,5 +72,10 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str):
             except WebSocketDisconnect:
                 break
     finally:
-        rooms[room_name].remove(websocket)
-        await websocket.close()
+        room = rooms[room_name]
+        print(room)
+        for p in room["participants"]:
+            print(p)
+            if p["user_id"] == user_id:
+                room["participants"].remove(p)
+        
