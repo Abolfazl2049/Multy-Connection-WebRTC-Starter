@@ -78,7 +78,7 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str,user_id: str):
         for p in room["participants"]:
             
             if p["user_id"] == user_id:
-                websocket.send_text(json.dumps({"type":"left","data":{"target":p["user_id"]}}))
                 room["participants"].remove(p)
-                print(f"{p['user_id']} left the room {room}")
+                await broadcast_message(room_name,json.dumps({"type":"left","data":{"target":user_id}}))
+                print(f"{p['user_id']} left the room {room_name}")
         
