@@ -3,7 +3,6 @@ let localStream = ref();
 let ws = ref<WebSocket>();
 let participants = ref<{pc: RTCPeerConnection; userId: number; stream?: MediaStream}[]>([]);
 let roomId = ref("s");
-let userId = ref();
 
 let initWebrtc = async (userId: number) => {
   participants.value.push({pc: new RTCPeerConnection(), userId: userId});
@@ -62,11 +61,15 @@ const handle = () => {
     ws.value?.send(JSON.stringify({type: "offer", data: {sdp: offer?.sdp, target: data.user_id}}));
     await participant?.pc?.setLocalDescription(offer);
   };
+  const left = (data: any) => {
+    participants.value.splice(participants.value.indexOf(participants.value.find(el => el.userId === data.target) as any), 1);
+  };
   return {
     answer,
     offer,
     candidate,
-    join
+    join,
+    left
   };
 };
 
@@ -89,6 +92,10 @@ function join() {
         break;
       case "candidate":
         handle().candidate(data.data);
+        break;
+      case "left":
+        handle().left(data.data);
+        break;
     }
   };
 }
@@ -103,7 +110,7 @@ navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
   </div>
   <div class="p-5 flex flex-wrap gap-5">
     <video :srcObject="localStream" autoplay muted />
-    <video v-for="i in participants" :srcObject="i.stream" autoplay muted />
+    <video v-for="i in participants" :srcObject="i.stream" autoplay />
   </div>
 </template>
 <style>
