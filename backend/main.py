@@ -36,8 +36,7 @@ async def handle_answer(data, websocket):
     
 
 async def handle_icecandidate(data, websocket):
-    print("handle ice candidate")
-    await broadcast_message(data["room"], json.dumps({"type":"candidate","data":data}), exclude=websocket)
+    await private_message(data["room"], json.dumps({"type":"candidate","data":data}), data["target"])
 
 async def handle_join(data, websocket):
     room = rooms[data["room"]]
@@ -77,7 +76,9 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str,user_id: str):
         room = rooms[room_name]
         print(room)
         for p in room["participants"]:
-            print(p)
+            
             if p["user_id"] == user_id:
+                websocket.send_text(json.dumps({"type":"left","data":{"target":p["user_id"]}}))
                 room["participants"].remove(p)
+                print(f"{p['user_id']} left the room {room}")
         
