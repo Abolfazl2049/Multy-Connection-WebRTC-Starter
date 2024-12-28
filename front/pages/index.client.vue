@@ -1,58 +1,66 @@
 <script setup lang="ts">
 let localStream = ref();
-let ws = ref();
-let webrtc = ref();
-let roomId = ref();
+let ws = ref<WebSocket>();
+let participants = ref<{pc: RTCPeerConnection; userId: number; stream?: MediaStream}[]>([]);
+let roomId = ref("s");
 let userId = ref();
 
-let initWebrtc = () => {
-  webrtc.value = new RTCPeerConnection();
-  webrtc.value.onicecandidate = (e: any) => {
-    const message = {
-      type: "candidate",
-      data: {
-        candidate: null
-      }
-    };
-    if (e.candidate) {
-      message.data.candidate = e.candidate.candidate;
-      message.data.sdpMid = e.candidate.sdpMid;
-      message.data.sdpMLineIndex = e.candidate.sdpMLineIndex;
-    }
-    ws.value.send(JSON.stringify(message));
+let initWebrtc = async (userId: number) => {
+  participants.value.push({pc: new RTCPeerConnection(), userId: userId});
+  let participant = participants.value[participants.value.length - 1];
+  participant.pc.onicecandidate = (e: any) => {
+    let candidateData:
+      | {
+          candidate: any;
+          sdpMid: any;
+          sdpMLineIndex: any;
+        }
+      | undefined = undefined;
+    if (e.candidate)
+      candidateData = {
+        candidate: e.candidate.candidate,
+        sdpMid: e.candidate.sdpMid,
+        sdpMLineIndex: e.candidate.sdpMLineIndex
+      };
+
+    ws.value?.send(
+      JSON.stringify({
+        type: "candidate",
+        data: {
+          candidate: candidateData,
+          target: userId
+        }
+      })
+    );
   };
-  webrtc.value.ontrack = (e: any) => console.log(e);
-  localStream.value.getTracks().forEach((track: any) => webrtc.value.addTrack(track, localStream.value));
+  participant.pc.ontrack = (e: any) => (participant.stream = e?.streams[0]);
+  await localStream.value.getTracks().forEach((track: any) => participant.pc?.addTrack(track, localStream.value));
 };
 const handle = () => {
-  const answer = async (userId: number) => {
-    
-    ws.value.send(JSON.stringify({type: "answer", data: {target: userId}}));
-    await webrtc.value.setRemoteDescription(answer);
+  const answer = async (data: any) => {
+    let participant = participants.value.find(el => el.userId === data.user_id);
+    await participant?.pc?.setRemoteDescription({type: "answer", sdp: data.sdp});
   };
-  const offer = async (userId: number, sdp: string) => {
-    
-    ws.value.send(JSON.stringify({type: "offer", data: {target: userId}}));
-    // initWebrtc();
-    await webrtc.value.setRemoteDescription({type: "offer", sdp});
-    console.log(`Sending answer to ${userId}`);
-    const answer = await webrtc.value.createAnswer();
-    ws.value.send({type: "answer", sdp: answer.sdp});
-    await webrtc.value.setLocalDescription(answer);
+  const offer = async (data: any) => {
+    await initWebrtc(data.user_id);
+    let participant = participants.value.find(el => el.userId === data.user_id);
+    await participant?.pc?.setRemoteDescription({type: "offer", sdp: data.sdp});
+    const answer = await participant?.pc?.createAnswer();
+    ws.value?.send(JSON.stringify({type: "answer", data: {sdp: answer?.sdp, target: data.user_id}}));
+    await participant?.pc?.setLocalDescription(answer);
   };
-  const candidate = async (candidate: any) => {
-    if (!candidate.candidate) {
-      await webrtc.value.addIceCandidate(null);
-    } else {
-      await webrtc.value.addIceCandidate(candidate);
-    }
+  const candidate = async (data: any) => {
+    console.log("candidate");
+    let participant = participants.value.find(el => el.userId === data.user_id);
+    await participant?.pc?.addIceCandidate(data.candidate);
   };
 
-  const join = async (userId: number) => {
-    initWebrtc();
-    const offer = await webrtc.value.createOffer();
-    ws.value.send(JSON.stringify({type: "offer", data: {sdp: offer.sdp, target: userId}}));
-    await webrtc.value.setLocalDescription(offer);
+  const join = async (data: any) => {
+    await initWebrtc(data.user_id);
+    let participant = participants.value.find(el => el.userId === data.user_id);
+    const offer = await participant?.pc?.createOffer();
+    ws.value?.send(JSON.stringify({type: "offer", data: {sdp: offer?.sdp, target: data.user_id}}));
+    await participant?.pc?.setLocalDescription(offer);
   };
   return {
     answer,
@@ -64,27 +72,23 @@ const handle = () => {
 
 function join() {
   ws.value = new WebSocket(`ws://192.168.4.148:8000/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
-  ws.value.onopen = function (event: any) {
-    ws.value.send(JSON.stringify({type: "join", data: {}}));
+  ws.value.onopen = function () {
+    ws.value?.send(JSON.stringify({type: "join", data: {}}));
   };
   ws.value.onmessage = function (event: any) {
     let data = JSON.parse(event.data);
-    let userId = data.data.user_id;
     switch (data.type) {
       case "join":
-        console.log("New user join");
-        handle().join(userId);
+        handle().join(data.data);
         break;
       case "offer":
-        console.log(`New user offer`);
-        handle().offer(userId, data.data.sdp);
+        handle().offer(data.data);
         break;
       case "answer":
-        handle().answer(userId);
-        console.log(`New user answer from ${userId}`);
+        handle().answer(data.data);
         break;
       case "candidate":
-        handle().candidate(data);
+        handle().candidate(data.data);
     }
   };
 }
@@ -95,9 +99,9 @@ navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
 <template>
   <h1>Meet</h1>
   <p>Enter room id</p>
-  <input v-model="roomId" />
+  <input v-model="roomId" class="border m-2" />
   <button @click="join">Join room</button>
-  <p>You id:{{ userId }}</p>
   <hr />
-  <video :srcObject="localStream" autoplay muted></video>
+  <video :srcObject="localStream" autoplay muted class="-scale-x-100" />
+  <video v-for="i in participants" :srcObject="i.stream" autoplay muted class="-scale-x-100" />
 </template>
