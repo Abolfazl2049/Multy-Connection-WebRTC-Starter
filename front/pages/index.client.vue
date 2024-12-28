@@ -97,11 +97,17 @@ navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
 });
 </script>
 <template>
-  <h1>Meet</h1>
-  <p>Enter room id</p>
-  <input v-model="roomId" class="border m-2" />
-  <button @click="join">Join room</button>
-  <hr />
-  <video :srcObject="localStream" autoplay muted class="-scale-x-100" />
-  <video v-for="i in participants" :srcObject="i.stream" autoplay muted class="-scale-x-100" />
+  <div class="flex p-2 gap-2 border-b">
+    <input v-model="roomId" class="border-2 p-1" />
+    <button @click="join" class="bg-red-600 text-white p-2">Join room</button>
+  </div>
+  <div class="p-5 flex flex-wrap gap-5">
+    <video :srcObject="localStream" autoplay muted />
+    <video v-for="i in participants" :srcObject="i.stream" autoplay muted />
+  </div>
 </template>
+<style>
+video {
+  @apply -scale-x-100 size-[200px];
+}
+</style>
