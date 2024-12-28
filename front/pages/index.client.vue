@@ -62,7 +62,11 @@ const handle = () => {
     await participant?.pc?.setLocalDescription(offer);
   };
   const left = (data: any) => {
-    participants.value.splice(participants.value.indexOf(participants.value.find(el => el.userId === data.target) as any), 1);
+    let participant = participants.value.find(el => el.userId === data.target);
+    if (participant) {
+      participant.pc?.close();
+      participants.value.splice(participants.value.indexOf(participant), 1);
+    }
   };
   return {
     answer,
@@ -74,6 +78,9 @@ const handle = () => {
 };
 
 function join() {
+  for (let i of participants.value) i.pc.close();
+  participants.value = [];
+  ws.value?.close();
   ws.value = new WebSocket(`ws://192.168.4.148:8000/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
   ws.value.onopen = function () {
     ws.value?.send(JSON.stringify({type: "join", data: {}}));
