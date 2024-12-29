@@ -1,67 +1,73 @@
 <script setup lang="ts">
+import type {participant} from "~/types";
 let localStream = ref();
 let ws = ref<WebSocket>();
-let participants = ref<{pc: RTCPeerConnection; userId: number; stream?: MediaStream}[]>([]);
+let participants = ref<participant[]>([]);
 let roomId = ref("s");
 
-let initWebrtc = async (userId: number) => {
-  participants.value.push({pc: new RTCPeerConnection(), userId: userId});
-  let participant = participants.value[participants.value.length - 1];
-  participant.pc.onicecandidate = (e: any) => {
-    let candidateData:
-      | {
-          candidate: any;
-          sdpMid: any;
-          sdpMLineIndex: any;
-        }
-      | undefined = undefined;
-    if (e.candidate)
-      candidateData = {
-        candidate: e.candidate.candidate,
-        sdpMid: e.candidate.sdpMid,
-        sdpMLineIndex: e.candidate.sdpMLineIndex
-      };
+let initPC = (userId: number) => {
+  // initialize peer connection
 
-    ws.value?.send(
-      JSON.stringify({
-        type: "candidate",
-        data: {
-          candidate: candidateData,
-          target: userId
-        }
-      })
-    );
+  participants.value.push({pc: new RTCPeerConnection(), userId: userId});
+  let participant = participants.value.at(-1) as participant;
+  participant.pc.onicecandidate = (e: any) => {
+    if (e.candidate)
+      ws.value?.send(
+        JSON.stringify({
+          type: "candidate",
+          data: {
+            candidate: {
+              candidate: e.candidate.candidate,
+              sdpMid: e.candidate.sdpMid,
+              sdpMLineIndex: e.candidate.sdpMLineIndex
+            },
+            target: userId
+          }
+        })
+      );
   };
   participant.pc.ontrack = (e: any) => (participant.stream = e?.streams[0]);
-  await localStream.value.getTracks().forEach((track: any) => participant.pc?.addTrack(track, localStream.value));
+  localStream.value.getTracks().forEach((track: any) => participant.pc?.addTrack(track, localStream.value));
 };
 const handle = () => {
   const answer = async (data: any) => {
+    // set answer as remote description to the target peerConnection
+
     let participant = participants.value.find(el => el.userId === data.user_id);
     await participant?.pc?.setRemoteDescription({type: "answer", sdp: data.sdp});
   };
+
   const offer = async (data: any) => {
-    await initWebrtc(data.user_id);
+    // initialize a peer connection with the target user that sent offer
+
+    initPC(data.user_id);
     let participant = participants.value.find(el => el.userId === data.user_id);
     await participant?.pc?.setRemoteDescription({type: "offer", sdp: data.sdp});
     const answer = await participant?.pc?.createAnswer();
     ws.value?.send(JSON.stringify({type: "answer", data: {sdp: answer?.sdp, target: data.user_id}}));
     await participant?.pc?.setLocalDescription(answer);
   };
+
   const candidate = async (data: any) => {
-    console.log("candidate");
+    // add candidate to the target peer connection
+
     let participant = participants.value.find(el => el.userId === data.user_id);
     await participant?.pc?.addIceCandidate(data.candidate);
   };
 
   const join = async (data: any) => {
-    await initWebrtc(data.user_id);
+    // sent an offer to the joined-user
+
+    initPC(data.user_id);
     let participant = participants.value.find(el => el.userId === data.user_id);
     const offer = await participant?.pc?.createOffer();
     ws.value?.send(JSON.stringify({type: "offer", data: {sdp: offer?.sdp, target: data.user_id}}));
     await participant?.pc?.setLocalDescription(offer);
   };
+
   const left = (data: any) => {
+    // close peer connection with the target-user and remove it from participants
+
     let participant = participants.value.find(el => el.userId === data.target);
     if (participant) {
       participant.pc?.close();
@@ -77,15 +83,12 @@ const handle = () => {
   };
 };
 
-function join() {
-  for (let i of participants.value) i.pc.close();
-  participants.value = [];
-  ws.value?.close();
+let joinRoom = () => {
+  // join the target room and listen to socket mesages
+
   ws.value = new WebSocket(`ws://192.168.4.148:8000/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
-  ws.value.onopen = function () {
-    ws.value?.send(JSON.stringify({type: "join", data: {}}));
-  };
-  ws.value.onmessage = function (event: any) {
+  ws.value.onopen = () => ws.value?.send(JSON.stringify({type: "join", data: {}}));
+  ws.value.onmessage = (event: any) => {
     let data = JSON.parse(event.data);
     switch (data.type) {
       case "join":
@@ -105,17 +108,28 @@ function join() {
         break;
     }
   };
-}
-navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+};
+let leftRoom = () => {
+  // gracefully disconnecting
+
+  ws.value?.close();
+  ws.value = undefined;
+  for (let i of participants.value) i.pc.close();
+};
+await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
   localStream.value = stream;
 });
 </script>
 <template>
   <div class="flex p-2 gap-2 border-b">
-    <input v-model="roomId" class="border-2 p-1" />
-    <button @click="join" class="bg-red-600 text-white p-2">Join room</button>
+    <input v-model="roomId" :disabled="ws ? true : false" class="border-2 p-1" />
+    <button @click="ws ? leftRoom() : joinRoom()" class="bg-red-600 text-white p-2">{{ ws ? "Left Room" : "Join Room" }}</button>
   </div>
-  <div class="p-5 flex flex-wrap gap-5">
+  <div class="m-5 *:bg-red-600 space-x-3 *:p-2 text-white">
+    <button @click="localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled">mute audio</button>
+    <button @click="localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled">mute video</button>
+  </div>
+  <div class="p-5 flex flex-wrap gap-5 border">
     <video :srcObject="localStream" autoplay muted />
     <video v-for="i in participants" :srcObject="i.stream" autoplay />
   </div>
