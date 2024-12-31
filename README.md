@@ -3,8 +3,7 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
+- [Contributing](#contributing)
 
 ## Introduction
 
@@ -15,35 +14,6 @@ front side of this project has been written in vue + nuxt ,because i love nuxt!
 - you can connect mnore than two peaple together in one room (everyone is connectted to everyone !) 
 - toggle video and audio in call
 
-## Installation front
-
-To install this project, follow these steps:
-
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/Abolfazl2049/meet.git
-    cd meet
-    cd front
-    ```
-
-2. Install dependencies:
-    ```bash
-    npm i
-    ```
-
-## Usage
-
-To use this project, follow these steps:
-
-1. Run the application:
-    ```bash
-    npm run dev
-    ```
-
-2. Access the application at:
-    ```bash
-    http://localhost:3000
-    ```
 
 ## Contributing
 
