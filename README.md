@@ -8,7 +8,7 @@
 ## Introduction
 
 this is a full working webrtc multy-connecttion (multy peer to peer) with python websocket as signaling server
-front side of this project has been written in vue + nuxt ,because i love nuxt! 
+front side of this project has been written in vue(Nuxt 3) and TypeScript
 ## Features
 
 - you can connect mnore than two peaple together in one room (everyone is connectted to everyone !) 
