@@ -1,3 +1,9 @@
+## Features 
+using base RTCPeerConnection API for best flexibility 
+simple and all-in-one page code for better understanding 
+written in vue(Nuxt 3) and TS for best dev experience
+
+
 ## Installation
 
 To install this project, follow these steps:
@@ -29,4 +35,8 @@ To use this project, follow these steps:
    ```bash
    http://localhost:3000
    ```
-3. Make sure you change the "websocket url" to connect to your own system in network
+
+   ##Notes
+   1 Make sure you change the "websocket url" to connect to your own system in network
+   2 For the best connectivity in all devices add custom stun and turn server (personnaly i recommend cloudflare)
+   
