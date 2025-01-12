@@ -3,7 +3,7 @@ import type {participant} from "~/types";
 let localStream = ref();
 let ws = ref<WebSocket>();
 let participants = ref<participant[]>([]);
-let roomId = ref("s");
+let roomId = ref();
 
 let initPC = (userId: number) => {
   // initialize peer connection
@@ -26,9 +26,10 @@ let initPC = (userId: number) => {
         })
       );
   };
-  participant.pc.ontrack = (e: any) => (participant.stream = e?.streams[0]);
+  participant.pc.ontrack = e => (participant.stream = new MediaStream(e.streams[0]));
   localStream.value.getTracks().forEach((track: any) => participant.pc?.addTrack(track, localStream.value));
 };
+
 const handle = () => {
   const answer = async (data: any) => {
     // set answer as remote description to the target peerConnection
@@ -109,13 +110,15 @@ let joinRoom = () => {
     }
   };
 };
-let leftRoom = () => {
+
+let leaveRoom = () => {
   // gracefully disconnecting
 
   ws.value?.close();
   ws.value = undefined;
   for (let i of participants.value) i.pc.close();
 };
+
 await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
   localStream.value = stream;
 });
@@ -123,14 +126,14 @@ await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(strea
 <template>
   <div class="flex p-2 gap-2 border-b">
     <input v-model="roomId" :disabled="ws ? true : false" class="border-2 p-1" />
-    <button @click="ws ? leftRoom() : joinRoom()" class="bg-red-600 text-white p-2">{{ ws ? "Left Room" : "Join Room" }}</button>
+    <button @click="ws ? leaveRoom() : joinRoom()" class="bg-red-600 text-white p-2">{{ ws ? "Leave Room" : "Join Room" }}</button>
   </div>
   <div class="m-5 *:bg-red-600 space-x-3 *:p-2 text-white">
     <button @click="localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled">mute audio</button>
     <button @click="localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled">mute video</button>
   </div>
   <div class="p-5 flex flex-wrap gap-5 border">
-    <video :srcObject="localStream" autoplay muted />
+    <video :srcObject="localStream" autoplay playsinline />
     <video v-for="i in participants" :srcObject="i.stream" autoplay />
   </div>
 </template>
