@@ -86,7 +86,7 @@ const handle = () => {
 
 let joinRoom = () => {
   // join the target room and listen to socket messages
-  let baseURL = "https://webrtc.moderndata.ir/";
+  let baseURL = "wss://webrtc.moderndata.ir";
   ws.value = new WebSocket(`${baseURL}/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
   ws.value.onopen = () => ws.value?.send(JSON.stringify({type: "join", data: {}}));
   ws.value.onmessage = (event: any) => {
@@ -117,6 +117,7 @@ let leaveRoom = () => {
   ws.value?.close();
   ws.value = undefined;
   for (let i of participants.value) i.pc.close();
+  participants.value = [];
 };
 
 await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
@@ -125,7 +126,7 @@ await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(strea
 </script>
 <template>
   <div class="flex p-2 gap-2 border-b">
-    <input v-model="roomId" :disabled="ws ? true : false" class="border-2 p-1" />
+    <input v-model="roomId" :disabled="ws ? true : false" class="border-2 p-1" placeholder="Room id" />
     <button @click="ws ? leaveRoom() : joinRoom()" class="bg-red-600 text-white p-2">{{ ws ? "Leave Room" : "Join Room" }}</button>
   </div>
   <div class="m-5 *:bg-red-600 space-x-3 *:p-2 text-white">
@@ -135,6 +136,10 @@ await navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(strea
   <div class="p-5 flex flex-wrap gap-5 border">
     <video :srcObject="localStream" autoplay playsinline />
     <video v-for="i in participants" :srcObject="i.stream" autoplay />
+  </div>
+  <div>
+    Note : Enter the same Room id to connect to each other <br />
+    And Be patient !
   </div>
 </template>
 <style>
