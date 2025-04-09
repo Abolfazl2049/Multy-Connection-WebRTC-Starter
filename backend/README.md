@@ -17,23 +17,16 @@ This project is a WebRTC-based chat application using FastAPI and WebSockets. It
     cd meet
     ```
 
-2. Create a virtual environment and activate it:
-    ```sh
-    python -m venv env
-    source env/bin/activate  # On Windows use `env\Scripts\activate`
+2. Build the Docker image:
+    ```
+    docker build -t fastapi-app .
     ```
 
-3. Install the dependencies:
-    ```sh
-    pip install -r requirements.txt
+3. Run the container:
     ```
-
-4. Run the application:
-    ```sh
-    uvicorn main:app --reload
+    docker run -d -p 8000:8000 --name fastapi-container fastapi-app
     ```
-
-5. Open your browser and navigate to `http://localhost:8000` to start chatting!
+4. Open your browser and navigate to `http://localhost:8000` to start chatting!
 
 ## Code Explanation
 
