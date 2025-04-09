@@ -86,8 +86,8 @@ const handle = () => {
 
 let joinRoom = () => {
   // join the target room and listen to socket messages
-
-  ws.value = new WebSocket(`ws://192.168.4.148:8000/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
+  let baseURL = "https://webrtc.moderndata.ir/";
+  ws.value = new WebSocket(`${baseURL}/ws/${roomId.value}/${Math.floor(Math.random() * (99 - 10) + 10)}`);
   ws.value.onopen = () => ws.value?.send(JSON.stringify({type: "join", data: {}}));
   ws.value.onmessage = (event: any) => {
     let data = JSON.parse(event.data);
